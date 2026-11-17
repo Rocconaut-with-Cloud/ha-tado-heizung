@@ -13,7 +13,7 @@ Everything lives in one package file. All temperatures and times are helpers you
 - **Learns lead and coast times.** Every day it checks whether the room was warm on time and corrects the lead time by half the error. In the evening it measures how much the room cools after switching down early and adjusts the coast time so the room loses no more than a set amount (default 0.5 °C).
 - **Window contacts.** A room switches off after a window has been open for a set time and resumes afterwards. Only active below a set outdoor temperature.
 - **Workdays and holidays** through the Workday integration, **vacation mode**, and **push notifications** when a room was not warm in time.
-- **Self-check.** One minute after every change the targets are sent again, and a problem sensor per room shows when a thermostat differs from the intended target.
+- **Targeted safeguard.** A problem sensor per room compares the thermostat with the intended target. If they differ for more than 2 minutes (for example because tado° fell back to its own schedule, or a thermostat came back after losing its radio link), only that room is corrected. While the difference persists, it retries every 15 minutes instead of sending constantly.
 
 ## Room layout in the example
 
@@ -58,6 +58,7 @@ Most problems during development came from these:
 - **Manual control** must be set to "until you resume the schedule" for every room. With "timer" or "until next automatic change", tado° silently falls back to its own schedule.
 - Turn off **Early Start**, **open window detection** and **geofencing** in the tado° app. Home Assistant handles all three.
 - Keep a simple tado° schedule as a fallback, for example one block at 18 °C all day.
+- **Radio range.** If single thermostats often show as unavailable, check the position of the tado° Internet Bridge first. Drywall with metal studs or foil-backed insulation blocks the signal much more than the distance suggests. The package keeps radio traffic low on purpose and only sends commands where a value actually differs.
 
 ## How the learning works
 
@@ -71,7 +72,7 @@ Most problems during development came from these:
 
 - Tested in a single flat with a gas boiler and seven thermostats. Treat it as a starting point for your own setup.
 - Switching down early works only for fixed times. Departures cannot be predicted.
-- A manual change on the thermostat or in the tado° app lasts until the next event (presence, window, time).
+- A manual change on the thermostat or in the tado° app is reverted by the safeguard after about 2 minutes. Change temperatures permanently with the helpers in Home Assistant.
 - Times are evaluated once per minute.
 
 ## License

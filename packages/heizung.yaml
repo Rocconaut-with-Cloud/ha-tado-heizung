@@ -1178,23 +1178,57 @@ automation:
                             entity_id: "{{ repeat.item.e }}"
                           data:
                             temperature: "{{ repeat.item.z | float }}"
-      - event: heizung_steuerung_fertig
 
-  - id: heizung_kontrolle
-    alias: Heizung Kontrolle (1 Min nach Steuerung)
+  - id: heizung_absicherung
+    alias: Heizung Absicherung (Abweichung korrigieren)
     description: >
-      Sendet 1 Minute nach jedem Lauf der Steuerung die Soll-Temperaturen
-      noch einmal, falls tado sie nicht übernommen hat.
-    mode: restart
+      Stellt nur die Räume zurück, deren Thermostat länger als 2 Minuten von
+      "Soll laut Automation" abweicht (z. B. tado-Timer, Rückkehr nach Offline).
+      Hält die Abweichung an, wird alle 15 Minuten erneut versucht.
+    mode: queued
+    max: 10
     triggers:
-      - trigger: event
-        event_type: heizung_steuerung_fertig
+      - trigger: state
+        id: ab_wohnkueche
+        entity_id: binary_sensor.heizung_abweichung_wohnkueche
+        to: "on"
+      - trigger: state
+        id: ab_bad
+        entity_id: binary_sensor.heizung_abweichung_bad
+        to: "on"
+      - trigger: state
+        id: ab_schlafzimmer
+        entity_id: binary_sensor.heizung_abweichung_schlafzimmer
+        to: "on"
+      - trigger: state
+        id: ab_zimmer1
+        entity_id: binary_sensor.heizung_abweichung_zimmer1
+        to: "on"
+      - trigger: state
+        id: ab_zimmer2
+        entity_id: binary_sensor.heizung_abweichung_zimmer2
+        to: "on"
+      - trigger: state
+        id: ab_zimmer3
+        entity_id: binary_sensor.heizung_abweichung_zimmer3
+        to: "on"
+      - trigger: time_pattern
+        id: wiederholung
+        minutes: "/15"
     conditions:
       - condition: state
         entity_id: input_boolean.heizung_automatik
         state: "on"
     actions:
-      - delay: "00:01:00"
+      - variables:
+          raeume: >
+            {% if trigger.id.startswith('ab_') %}
+              {{ [trigger.id[3:]] }}
+            {% else %}
+              {% set ns = namespace(r=[]) %}{% for k in ['wohnkueche', 'bad', 'schlafzimmer', 'zimmer1', 'zimmer2', 'zimmer3'] %}{% if is_state('binary_sensor.heizung_abweichung_' ~ k, 'on') %}{% set ns.r = ns.r + [k] %}{% endif %}{% endfor %}{{ ns.r }}
+            {% endif %}
+      - condition: template
+        value_template: "{{ raeume | count > 0 }}"
       - variables:
           ziele: >
             {% set ns = namespace(out=[]) %}
@@ -1206,7 +1240,7 @@ automation:
               {'k': 'zimmer2', 't': ['climate.thermostat_zimmer_2']},
               {'k': 'zimmer3', 't': ['climate.thermostat_zimmer_3']}
             ] %}
-              {% set s = states('sensor.heizung_soll_' ~ r.k) %}
+              {% set s = states('sensor.heizung_soll_' ~ r.k) if r.k in raeume else 'x' %}
               {% if s == 'aus' or is_number(s) %}
                 {% for e in r.t %}
                   {% set ns.out = ns.out + [{'e': e, 'z': 'off' if s == 'aus' else (s | float)}] %}
@@ -1245,7 +1279,7 @@ automation:
                           data:
                             temperature: "{{ repeat.item.z | float }}"
                     # heizt bereits -> nur Temperatur
-                    - conditions: "{{ true }}"
+                    - conditions: "{{ (state_attr(repeat.item.e, 'temperature') | float(0)) != (repeat.item.z | float) }}"
                       sequence:
                         - action: climate.set_temperature
                           target:

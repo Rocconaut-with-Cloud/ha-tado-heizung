@@ -13,7 +13,7 @@ Alles steckt in einer Paket-Datei. Temperaturen und Zeiten sind Helfer, die du �
 - **Lernt Vorlauf und Nachlauf.** Jeden Tag wird geprüft, ob der Raum pünktlich warm war, und der Vorlauf um die halbe Abweichung korrigiert. Abends wird gemessen, wie stark der Raum nach dem frühen Absenken abkühlt, und der Nachlauf so angepasst, dass er höchstens einen eingestellten Wert verliert (Standard 0,5 °C).
 - **Fensterkontakte.** Ein Raum schaltet ab, wenn ein Fenster eine eingestellte Zeit offen ist, und danach wieder ein. Nur aktiv unter einer eingestellten Außentemperatur.
 - **Arbeitstage und Feiertage** über die Integration „Arbeitstag“, **Urlaubsmodus** und **Push-Nachrichten**, wenn ein Raum nicht rechtzeitig warm war.
-- **Selbstkontrolle.** Eine Minute nach jeder Änderung werden die Sollwerte erneut gesendet. Ein Problem-Sensor pro Raum zeigt, wenn ein Thermostat von der Vorgabe abweicht.
+- **Gezielte Absicherung.** Ein Problem-Sensor pro Raum vergleicht das Thermostat mit der Vorgabe. Weichen beide länger als 2 Minuten voneinander ab (z. B. weil tado° auf den eigenen Zeitplan zurückgesprungen ist oder ein Thermostat nach einem Funkausfall wieder da ist), wird nur dieser Raum korrigiert. Hält die Abweichung an, folgt alle 15 Minuten ein neuer Versuch statt dauernder Befehle.
 
 ## Raumaufteilung im Beispiel
 
@@ -56,6 +56,7 @@ Daran lagen während der Entwicklung die meisten Probleme:
 - **Manuelle Steuerung** muss in jedem Raum auf „Bis du den Zeitplan fortsetzt“ stehen. Bei „Timer“ oder „Bis zur nächsten automatischen Änderung“ springt tado° unbemerkt auf den eigenen Zeitplan zurück.
 - **Early Start**, **Fenster-offen-Erkennung** und **Geofencing** in der tado°-App ausschalten. Das übernimmt Home Assistant.
 - Als Rückfall einen einfachen tado°-Zeitplan behalten, zum Beispiel einen Block mit 18 °C für den ganzen Tag.
+- **Funkreichweite.** Sind einzelne Thermostate oft „nicht verfügbar“, zuerst den Standort der tado° Internet Bridge prüfen. Trockenbauwände mit Metallständern oder Dämmung mit Alufolie schirmen deutlich stärker ab, als die Entfernung vermuten lässt. Das Paket hält den Funkverkehr bewusst gering und sendet nur dort, wo ein Wert tatsächlich abweicht.
 
 ## So funktioniert das Lernen
 
@@ -69,7 +70,7 @@ Daran lagen während der Entwicklung die meisten Probleme:
 
 - Getestet in einer einzelnen Wohnung mit Gasheizung und sieben Thermostaten. Sieh es als Ausgangspunkt für dein eigenes Setup.
 - Früher absenken geht nur bei festen Zeiten. Wann jemand geht, lässt sich nicht vorhersehen.
-- Eine Änderung von Hand am Thermostat oder in der tado°-App hält bis zum nächsten Ereignis (Anwesenheit, Fenster, Uhrzeit).
+- Eine Änderung von Hand am Thermostat oder in der tado°-App stellt die Absicherung nach etwa 2 Minuten zurück. Temperaturen änderst du dauerhaft über die Helfer in Home Assistant.
 - Zeiten werden einmal pro Minute ausgewertet.
 
 ## Lizenz
