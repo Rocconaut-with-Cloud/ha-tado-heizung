@@ -1,0 +1,4 @@
+# private Kopien / private copies
+*.private.yaml
+secrets.yaml
+.DS_Store

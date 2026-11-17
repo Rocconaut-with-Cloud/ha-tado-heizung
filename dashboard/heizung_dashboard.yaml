@@ -1,0 +1,227 @@
+type: vertical-stack
+cards:
+  - type: entities
+    title: Heizung – Einstellungen
+    entities:
+      - input_boolean.heizung_automatik
+      - input_boolean.heizung_urlaub
+      - input_boolean.heizung_lernen
+      - input_boolean.heizung_benachrichtigung
+      - type: section
+        label: Temperaturen
+      - input_number.heizung_temp_wohnkueche
+      - input_number.heizung_temp_bad
+      - input_number.heizung_temp_schlafzimmer
+      - input_number.heizung_temp_zimmer1
+      - input_number.heizung_temp_zimmer2
+      - input_number.heizung_temp_zimmer3
+      - input_number.heizung_temp_abwesend
+      - input_number.heizung_temp_nacht
+      - input_number.heizung_temp_urlaub
+      - type: section
+        label: Zeiten (Zielzeiten – wann es warm sein soll)
+      - input_datetime.heizung_wt_morgen_start
+      - input_datetime.heizung_wt_zimmer_start
+      - input_datetime.heizung_we_nacht_ende
+      - input_datetime.heizung_wt_nacht_start
+      - input_datetime.heizung_we_nacht_start
+      - type: section
+        label: Fenster & Lernen
+      - input_number.heizung_fenster_offen_min
+      - input_number.heizung_fenster_zu_min
+      - input_number.heizung_fenster_aussen_grenze
+      - input_number.heizung_puffer_tado
+      - input_number.heizung_toleranz_warm
+      - input_number.heizung_toleranz_abfall
+      - input_text.heizung_person_zimmer3
+  - type: entities
+    title: Lernen – Wohnküche
+    state_color: true
+    entities:
+      - entity: sensor.heizung_ist_wohnkueche
+        name: Ist-Temperatur
+      - entity: sensor.heizung_soll_wohnkueche
+        name: Soll laut Automation
+      - type: attribute
+        entity: climate.thermostat_wohnzimmer
+        attribute: temperature
+        name: Soll am Thermostat Wohnzimmer
+        suffix: °C
+      - type: attribute
+        entity: climate.thermostat_kueche
+        attribute: temperature
+        name: Soll am Thermostat Küche
+        suffix: °C
+      - entity: binary_sensor.heizung_abweichung_wohnkueche
+        name: Abweichung
+      - entity: binary_sensor.heizung_fenster_wohnkueche
+        name: Fenster
+      - entity: input_number.heizung_vorlauf_wohnkueche
+        name: Vorlauf
+      - entity: input_number.heizung_nachlauf_wohnkueche
+        name: Nachlauf
+      - entity: sensor.heizung_heizstart_wohnkueche
+        name: Heizstart heute
+        format: time
+      - entity: sensor.heizung_absenkstart_wohnkueche
+        name: Absenkung heute
+        format: time
+      - entity: input_text.heizung_ergebnis_morgen_wohnkueche
+        name: Morgens
+      - entity: input_text.heizung_ergebnis_abend_wohnkueche
+        name: Abends
+  - type: entities
+    title: Lernen – Bad
+    state_color: true
+    entities:
+      - entity: sensor.heizung_ist_bad
+        name: Ist-Temperatur
+      - entity: sensor.heizung_soll_bad
+        name: Soll laut Automation
+      - type: attribute
+        entity: climate.thermostat_bad
+        attribute: temperature
+        name: Soll am Thermostat
+        suffix: °C
+      - entity: binary_sensor.heizung_abweichung_bad
+        name: Abweichung
+      - entity: binary_sensor.heizung_fenster_bad
+        name: Fenster
+      - entity: input_number.heizung_vorlauf_bad
+        name: Vorlauf
+      - entity: input_number.heizung_nachlauf_bad
+        name: Nachlauf
+      - entity: sensor.heizung_heizstart_bad
+        name: Heizstart heute
+        format: time
+      - entity: sensor.heizung_absenkstart_bad
+        name: Absenkung heute
+        format: time
+      - entity: input_text.heizung_ergebnis_morgen_bad
+        name: Morgens
+      - entity: input_text.heizung_ergebnis_abend_bad
+        name: Abends
+  - type: entities
+    title: Lernen – Schlafzimmer
+    state_color: true
+    entities:
+      - entity: sensor.heizung_ist_schlafzimmer
+        name: Ist-Temperatur
+      - entity: sensor.heizung_soll_schlafzimmer
+        name: Soll laut Automation
+      - type: attribute
+        entity: climate.thermostat_schlafzimmer
+        attribute: temperature
+        name: Soll am Thermostat
+        suffix: °C
+      - entity: binary_sensor.heizung_abweichung_schlafzimmer
+        name: Abweichung
+      - entity: binary_sensor.heizung_fenster_schlafzimmer
+        name: Fenster
+      - entity: input_number.heizung_vorlauf_schlafzimmer
+        name: Vorlauf
+      - entity: input_number.heizung_nachlauf_schlafzimmer
+        name: Nachlauf
+      - entity: sensor.heizung_heizstart_schlafzimmer
+        name: Heizstart heute
+        format: time
+      - entity: sensor.heizung_absenkstart_schlafzimmer
+        name: Absenkung heute
+        format: time
+      - entity: input_text.heizung_ergebnis_morgen_schlafzimmer
+        name: Morgens
+      - entity: input_text.heizung_ergebnis_abend_schlafzimmer
+        name: Abends
+  - type: entities
+    title: Lernen – Zimmer 1
+    state_color: true
+    entities:
+      - entity: sensor.heizung_ist_zimmer1
+        name: Ist-Temperatur
+      - entity: sensor.heizung_soll_zimmer1
+        name: Soll laut Automation
+      - type: attribute
+        entity: climate.thermostat_zimmer_1
+        attribute: temperature
+        name: Soll am Thermostat
+        suffix: °C
+      - entity: binary_sensor.heizung_abweichung_zimmer1
+        name: Abweichung
+      - entity: binary_sensor.heizung_fenster_zimmer1
+        name: Fenster
+      - entity: input_number.heizung_vorlauf_zimmer1
+        name: Vorlauf
+      - entity: input_number.heizung_nachlauf_zimmer1
+        name: Nachlauf
+      - entity: sensor.heizung_heizstart_zimmer1
+        name: Heizstart heute
+        format: time
+      - entity: sensor.heizung_absenkstart_zimmer1
+        name: Absenkung heute
+        format: time
+      - entity: input_text.heizung_ergebnis_morgen_zimmer1
+        name: Morgens
+      - entity: input_text.heizung_ergebnis_abend_zimmer1
+        name: Abends
+  - type: entities
+    title: Lernen – Zimmer 2
+    state_color: true
+    entities:
+      - entity: sensor.heizung_ist_zimmer2
+        name: Ist-Temperatur
+      - entity: sensor.heizung_soll_zimmer2
+        name: Soll laut Automation
+      - type: attribute
+        entity: climate.thermostat_zimmer_2
+        attribute: temperature
+        name: Soll am Thermostat
+        suffix: °C
+      - entity: binary_sensor.heizung_abweichung_zimmer2
+        name: Abweichung
+      - entity: binary_sensor.heizung_fenster_zimmer2
+        name: Fenster
+      - entity: input_number.heizung_vorlauf_zimmer2
+        name: Vorlauf
+      - entity: input_number.heizung_nachlauf_zimmer2
+        name: Nachlauf
+      - entity: sensor.heizung_heizstart_zimmer2
+        name: Heizstart heute
+        format: time
+      - entity: sensor.heizung_absenkstart_zimmer2
+        name: Absenkung heute
+        format: time
+      - entity: input_text.heizung_ergebnis_morgen_zimmer2
+        name: Morgens
+      - entity: input_text.heizung_ergebnis_abend_zimmer2
+        name: Abends
+  - type: entities
+    title: Lernen – Zimmer 3
+    state_color: true
+    entities:
+      - entity: sensor.heizung_ist_zimmer3
+        name: Ist-Temperatur
+      - entity: sensor.heizung_soll_zimmer3
+        name: Soll laut Automation
+      - type: attribute
+        entity: climate.thermostat_zimmer_3
+        attribute: temperature
+        name: Soll am Thermostat
+        suffix: °C
+      - entity: binary_sensor.heizung_abweichung_zimmer3
+        name: Abweichung
+      - entity: binary_sensor.heizung_fenster_zimmer3
+        name: Fenster
+      - entity: input_number.heizung_vorlauf_zimmer3
+        name: Vorlauf
+      - entity: input_number.heizung_nachlauf_zimmer3
+        name: Nachlauf
+      - entity: sensor.heizung_heizstart_zimmer3
+        name: Heizstart heute
+        format: time
+      - entity: sensor.heizung_absenkstart_zimmer3
+        name: Absenkung heute
+        format: time
+      - entity: input_text.heizung_ergebnis_morgen_zimmer3
+        name: Morgens
+      - entity: input_text.heizung_ergebnis_abend_zimmer3
+        name: Abends

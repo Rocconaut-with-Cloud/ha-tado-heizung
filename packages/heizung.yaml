@@ -1,0 +1,1572 @@
+################################################################
+#  Heizungssteuerung für Home Assistant mit Lernfunktion
+#  Heating control for Home Assistant with adaptive pre-heating
+#
+#  Datei / file: /config/packages/heizung.yaml
+#  Doku / docs:  README.md (EN), README.de.md (DE)
+#
+#  ANPASSEN / ADAPT – diese Entitäten durch deine ersetzen
+#  (Suchen & Ersetzen) / replace these entities with yours:
+#
+#   Personen / persons
+#     person.bewohner_1   Wohnküche, Bad, Schlafzimmer (+ Zimmer 3)
+#     person.bewohner_2   Zimmer 1
+#     person.bewohner_3   Zimmer 2
+#   Thermostate / thermostats
+#     climate.thermostat_wohnzimmer   climate.thermostat_kueche
+#     climate.thermostat_bad          climate.thermostat_schlafzimmer
+#     climate.thermostat_zimmer_1     climate.thermostat_zimmer_2
+#     climate.thermostat_zimmer_3
+#   Fensterkontakte / window contacts
+#     binary_sensor.fenster_wohnzimmer  binary_sensor.fenster_kueche_1
+#     binary_sensor.fenster_kueche_2    binary_sensor.fenster_bad
+#     binary_sensor.fenster_schlafzimmer
+#     binary_sensor.fenster_zimmer_1 / _2 / _3
+#   Temperatur / temperature
+#     sensor.temperatur_wohnzimmer   Raumsensor Wohnküche / room sensor
+#     sensor.aussentemperatur        Außentemperatur / outdoor
+#   Benachrichtigung / notification
+#     notify.mobile_app_mein_handy
+#   Feiertage / holidays (optional, Integration "Arbeitstag"/"Workday")
+#     binary_sensor.arbeitstag_heute   (Offset 0)
+#     binary_sensor.arbeitstag_morgen  (Offset 1)
+#     Fehlen sie, gilt Mo–Fr / if missing, Mon–Fri is used.
+#
+#  Nach dem Einspielen EINMAL ausführen / run ONCE after installing:
+#   - Skript "Heizung Standardwerte setzen"
+#   - Skript "Heizung Lernwerte zurücksetzen"
+################################################################
+
+input_boolean:
+  heizung_automatik:
+    name: Heizung Automatik
+    icon: mdi:radiator
+  heizung_lernen:
+    name: Heizung Lernen
+    icon: mdi:school
+  heizung_urlaub:
+    name: Heizung Urlaubsmodus
+    icon: mdi:palm-tree
+  heizung_benachrichtigung:
+    name: Heizung Benachrichtigung
+    icon: mdi:bell
+
+input_number:
+  heizung_temp_wohnkueche:
+    name: "Temp. Wohnzimmer/Küche"
+    min: 5
+    max: 25
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:sofa
+  heizung_temp_bad:
+    name: "Temp. Bad"
+    min: 5
+    max: 25
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:shower
+  heizung_temp_schlafzimmer:
+    name: "Temp. Schlafzimmer"
+    min: 5
+    max: 25
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:bed
+  heizung_temp_zimmer1:
+    name: "Temp. Zimmer 1"
+    min: 5
+    max: 25
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:account
+  heizung_temp_zimmer2:
+    name: "Temp. Zimmer 2"
+    min: 5
+    max: 25
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:account
+  heizung_temp_zimmer3:
+    name: "Temp. Zimmer 3"
+    min: 5
+    max: 25
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:account
+  heizung_temp_abwesend:
+    name: "Temp. Abwesend"
+    min: 5
+    max: 25
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:home-export-outline
+  heizung_temp_nacht:
+    name: "Temp. Nachtabsenkung"
+    min: 5
+    max: 25
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:weather-night
+  heizung_temp_urlaub:
+    name: "Temp. Urlaub"
+    min: 5
+    max: 25
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:palm-tree
+  heizung_fenster_offen_min:
+    name: "Fenster offen → Heizung aus nach"
+    min: 0
+    max: 30
+    step: 1
+    unit_of_measurement: "min"
+    icon: mdi:window-open-variant
+  heizung_fenster_zu_min:
+    name: "Fenster zu → Heizung an nach"
+    min: 0
+    max: 30
+    step: 1
+    unit_of_measurement: "min"
+    icon: mdi:window-closed-variant
+  heizung_fenster_aussen_grenze:
+    name: "Fenster-Logik nur unter Außentemp."
+    min: 0
+    max: 30
+    step: 0.5
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer
+  heizung_puffer_tado:
+    name: "Zusatzpuffer Räume ohne eigenen Sensor"
+    min: 0
+    max: 20
+    step: 1
+    unit_of_measurement: "min"
+    icon: mdi:timer-plus-outline
+  heizung_toleranz_warm:
+    name: "Gilt als warm ab Soll minus"
+    min: 0
+    max: 1
+    step: 0.1
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-check
+  heizung_toleranz_abfall:
+    name: "Erlaubter Abfall bis Absenkzeit"
+    min: 0
+    max: 2
+    step: 0.1
+    unit_of_measurement: "°C"
+    icon: mdi:thermometer-minus
+  heizung_vorlauf_wohnkueche:
+    name: "Vorlauf Wohnküche"
+    min: 0
+    max: 45
+    step: 1
+    unit_of_measurement: "min"
+    icon: mdi:clock-start
+    mode: box
+  heizung_nachlauf_wohnkueche:
+    name: "Nachlauf Wohnküche"
+    min: 0
+    max: 60
+    step: 1
+    unit_of_measurement: "min"
+    icon: mdi:clock-end
+    mode: box
+  heizung_ist_aus_wohnkueche:
+    name: "intern Ist bei Absenkung Wohnküche"
+    min: -99
+    max: 50
+    step: 0.01
+    unit_of_measurement: "°C"
+    icon: mdi:database
+    mode: box
+  heizung_vorlauf_bad:
+    name: "Vorlauf Bad"
+    min: 0
+    max: 45
+    step: 1
+    unit_of_measurement: "min"
+    icon: mdi:clock-start
+    mode: box
+  heizung_nachlauf_bad:
+    name: "Nachlauf Bad"
+    min: 0
+    max: 60
+    step: 1
+    unit_of_measurement: "min"
+    icon: mdi:clock-end
+    mode: box
+  heizung_ist_aus_bad:
+    name: "intern Ist bei Absenkung Bad"
+    min: -99
+    max: 50
+    step: 0.01
+    unit_of_measurement: "°C"
+    icon: mdi:database
+    mode: box
+  heizung_vorlauf_schlafzimmer:
+    name: "Vorlauf Schlafzimmer"
+    min: 0
+    max: 45
+    step: 1
+    unit_of_measurement: "min"
+    icon: mdi:clock-start
+    mode: box
+  heizung_nachlauf_schlafzimmer:
+    name: "Nachlauf Schlafzimmer"
+    min: 0
+    max: 60
+    step: 1
+    unit_of_measurement: "min"
+    icon: mdi:clock-end
+    mode: box
+  heizung_ist_aus_schlafzimmer:
+    name: "intern Ist bei Absenkung Schlafzimmer"
+    min: -99
+    max: 50
+    step: 0.01
+    unit_of_measurement: "°C"
+    icon: mdi:database
+    mode: box
+  heizung_vorlauf_zimmer1:
+    name: "Vorlauf Zimmer 1"
+    min: 0
+    max: 45
+    step: 1
+    unit_of_measurement: "min"
+    icon: mdi:clock-start
+    mode: box
+  heizung_nachlauf_zimmer1:
+    name: "Nachlauf Zimmer 1"
+    min: 0
+    max: 60
+    step: 1
+    unit_of_measurement: "min"
+    icon: mdi:clock-end
+    mode: box
+  heizung_ist_aus_zimmer1:
+    name: "intern Ist bei Absenkung Zimmer 1"
+    min: -99
+    max: 50
+    step: 0.01
+    unit_of_measurement: "°C"
+    icon: mdi:database
+    mode: box
+  heizung_vorlauf_zimmer2:
+    name: "Vorlauf Zimmer 2"
+    min: 0
+    max: 45
+    step: 1
+    unit_of_measurement: "min"
+    icon: mdi:clock-start
+    mode: box
+  heizung_nachlauf_zimmer2:
+    name: "Nachlauf Zimmer 2"
+    min: 0
+    max: 60
+    step: 1
+    unit_of_measurement: "min"
+    icon: mdi:clock-end
+    mode: box
+  heizung_ist_aus_zimmer2:
+    name: "intern Ist bei Absenkung Zimmer 2"
+    min: -99
+    max: 50
+    step: 0.01
+    unit_of_measurement: "°C"
+    icon: mdi:database
+    mode: box
+  heizung_vorlauf_zimmer3:
+    name: "Vorlauf Zimmer 3"
+    min: 0
+    max: 45
+    step: 1
+    unit_of_measurement: "min"
+    icon: mdi:clock-start
+    mode: box
+  heizung_nachlauf_zimmer3:
+    name: "Nachlauf Zimmer 3"
+    min: 0
+    max: 60
+    step: 1
+    unit_of_measurement: "min"
+    icon: mdi:clock-end
+    mode: box
+  heizung_ist_aus_zimmer3:
+    name: "intern Ist bei Absenkung Zimmer 3"
+    min: -99
+    max: 50
+    step: 0.01
+    unit_of_measurement: "°C"
+    icon: mdi:database
+    mode: box
+
+input_datetime:
+  heizung_wt_nacht_start:
+    name: "Absenkung vor Arbeitstag ab"
+    has_date: false
+    has_time: true
+  heizung_we_nacht_start:
+    name: "Absenkung vor freiem Tag ab"
+    has_date: false
+    has_time: true
+  heizung_wt_morgen_start:
+    name: "Arbeitstag: Wohnküche/Bad warm um"
+    has_date: false
+    has_time: true
+  heizung_wt_zimmer_start:
+    name: "Arbeitstag: Zimmer warm um"
+    has_date: false
+    has_time: true
+  heizung_we_nacht_ende:
+    name: "Freier Tag: alles warm um"
+    has_date: false
+    has_time: true
+  heizung_erreicht_wohnkueche:
+    name: "intern warm erreicht Wohnküche"
+    has_date: true
+    has_time: true
+  heizung_erreicht_bad:
+    name: "intern warm erreicht Bad"
+    has_date: true
+    has_time: true
+  heizung_erreicht_schlafzimmer:
+    name: "intern warm erreicht Schlafzimmer"
+    has_date: true
+    has_time: true
+  heizung_erreicht_zimmer1:
+    name: "intern warm erreicht Zimmer 1"
+    has_date: true
+    has_time: true
+  heizung_erreicht_zimmer2:
+    name: "intern warm erreicht Zimmer 2"
+    has_date: true
+    has_time: true
+  heizung_erreicht_zimmer3:
+    name: "intern warm erreicht Zimmer 3"
+    has_date: true
+    has_time: true
+
+input_text:
+  heizung_person_zimmer3:
+    name: "Person für Zimmer 3 (person.…)"
+    max: 60
+    icon: mdi:account-question
+  heizung_ergebnis_morgen_wohnkueche:
+    name: "Lernen morgens Wohnküche"
+    max: 120
+    icon: mdi:weather-sunset-up
+  heizung_ergebnis_abend_wohnkueche:
+    name: "Lernen abends Wohnküche"
+    max: 120
+    icon: mdi:weather-sunset-down
+  heizung_ergebnis_morgen_bad:
+    name: "Lernen morgens Bad"
+    max: 120
+    icon: mdi:weather-sunset-up
+  heizung_ergebnis_abend_bad:
+    name: "Lernen abends Bad"
+    max: 120
+    icon: mdi:weather-sunset-down
+  heizung_ergebnis_morgen_schlafzimmer:
+    name: "Lernen morgens Schlafzimmer"
+    max: 120
+    icon: mdi:weather-sunset-up
+  heizung_ergebnis_abend_schlafzimmer:
+    name: "Lernen abends Schlafzimmer"
+    max: 120
+    icon: mdi:weather-sunset-down
+  heizung_ergebnis_morgen_zimmer1:
+    name: "Lernen morgens Zimmer 1"
+    max: 120
+    icon: mdi:weather-sunset-up
+  heizung_ergebnis_abend_zimmer1:
+    name: "Lernen abends Zimmer 1"
+    max: 120
+    icon: mdi:weather-sunset-down
+  heizung_ergebnis_morgen_zimmer2:
+    name: "Lernen morgens Zimmer 2"
+    max: 120
+    icon: mdi:weather-sunset-up
+  heizung_ergebnis_abend_zimmer2:
+    name: "Lernen abends Zimmer 2"
+    max: 120
+    icon: mdi:weather-sunset-down
+  heizung_ergebnis_morgen_zimmer3:
+    name: "Lernen morgens Zimmer 3"
+    max: 120
+    icon: mdi:weather-sunset-up
+  heizung_ergebnis_abend_zimmer3:
+    name: "Lernen abends Zimmer 3"
+    max: 120
+    icon: mdi:weather-sunset-down
+
+template:
+  - binary_sensor:
+      - name: Heizung Fenster Wohnkueche
+        unique_id: heizung_fenster_wohnkueche
+        device_class: window
+        state: >
+          {% set kalt = states('sensor.aussentemperatur') | float(0)
+             < states('input_number.heizung_fenster_aussen_grenze') | float(20) %}
+          {{ kalt and (is_state('binary_sensor.fenster_wohnzimmer', 'on')
+                    or is_state('binary_sensor.fenster_kueche_1', 'on')
+                    or is_state('binary_sensor.fenster_kueche_2', 'on')) }}
+        delay_on: "{{ '00:%02d:00' % (states('input_number.heizung_fenster_offen_min') | int(2)) }}"
+        delay_off: "{{ '00:%02d:00' % (states('input_number.heizung_fenster_zu_min') | int(2)) }}"
+      - name: Heizung Fenster Bad
+        unique_id: heizung_fenster_bad
+        device_class: window
+        state: >
+          {% set kalt = states('sensor.aussentemperatur') | float(0)
+             < states('input_number.heizung_fenster_aussen_grenze') | float(20) %}
+          {{ kalt and (is_state('binary_sensor.fenster_bad', 'on')) }}
+        delay_on: "{{ '00:%02d:00' % (states('input_number.heizung_fenster_offen_min') | int(2)) }}"
+        delay_off: "{{ '00:%02d:00' % (states('input_number.heizung_fenster_zu_min') | int(2)) }}"
+      - name: Heizung Fenster Schlafzimmer
+        unique_id: heizung_fenster_schlafzimmer
+        device_class: window
+        state: >
+          {% set kalt = states('sensor.aussentemperatur') | float(0)
+             < states('input_number.heizung_fenster_aussen_grenze') | float(20) %}
+          {{ kalt and (is_state('binary_sensor.fenster_schlafzimmer', 'on')) }}
+        delay_on: "{{ '00:%02d:00' % (states('input_number.heizung_fenster_offen_min') | int(2)) }}"
+        delay_off: "{{ '00:%02d:00' % (states('input_number.heizung_fenster_zu_min') | int(2)) }}"
+      - name: Heizung Fenster Zimmer1
+        unique_id: heizung_fenster_zimmer1
+        device_class: window
+        state: >
+          {% set kalt = states('sensor.aussentemperatur') | float(0)
+             < states('input_number.heizung_fenster_aussen_grenze') | float(20) %}
+          {{ kalt and (is_state('binary_sensor.fenster_zimmer_1', 'on')) }}
+        delay_on: "{{ '00:%02d:00' % (states('input_number.heizung_fenster_offen_min') | int(2)) }}"
+        delay_off: "{{ '00:%02d:00' % (states('input_number.heizung_fenster_zu_min') | int(2)) }}"
+      - name: Heizung Fenster Zimmer2
+        unique_id: heizung_fenster_zimmer2
+        device_class: window
+        state: >
+          {% set kalt = states('sensor.aussentemperatur') | float(0)
+             < states('input_number.heizung_fenster_aussen_grenze') | float(20) %}
+          {{ kalt and (is_state('binary_sensor.fenster_zimmer_2', 'on')) }}
+        delay_on: "{{ '00:%02d:00' % (states('input_number.heizung_fenster_offen_min') | int(2)) }}"
+        delay_off: "{{ '00:%02d:00' % (states('input_number.heizung_fenster_zu_min') | int(2)) }}"
+      - name: Heizung Fenster Zimmer3
+        unique_id: heizung_fenster_zimmer3
+        device_class: window
+        state: >
+          {% set kalt = states('sensor.aussentemperatur') | float(0)
+             < states('input_number.heizung_fenster_aussen_grenze') | float(20) %}
+          {{ kalt and (is_state('binary_sensor.fenster_zimmer_3', 'on')) }}
+        delay_on: "{{ '00:%02d:00' % (states('input_number.heizung_fenster_offen_min') | int(2)) }}"
+        delay_off: "{{ '00:%02d:00' % (states('input_number.heizung_fenster_zu_min') | int(2)) }}"
+  - sensor:
+      - name: Heizung Zeit warm frueh
+        unique_id: heizung_zeit_warm_frueh
+        device_class: timestamp
+        state: >
+          {% set heute = is_state('binary_sensor.arbeitstag_heute', 'on') if states('binary_sensor.arbeitstag_heute') in ['on', 'off'] else now().isoweekday() <= 5 %}
+          {{ today_at(states('input_datetime.heizung_wt_morgen_start') if heute
+               else states('input_datetime.heizung_we_nacht_ende')).isoformat() }}
+      - name: Heizung Zeit warm spaet
+        unique_id: heizung_zeit_warm_spaet
+        device_class: timestamp
+        state: >
+          {% set heute = is_state('binary_sensor.arbeitstag_heute', 'on') if states('binary_sensor.arbeitstag_heute') in ['on', 'off'] else now().isoweekday() <= 5 %}
+          {{ today_at(states('input_datetime.heizung_wt_zimmer_start') if heute
+               else states('input_datetime.heizung_we_nacht_ende')).isoformat() }}
+      - name: Heizung Zeit Absenkung
+        unique_id: heizung_zeit_absenkung
+        device_class: timestamp
+        state: >
+          {% set morgen = is_state('binary_sensor.arbeitstag_morgen', 'on') if states('binary_sensor.arbeitstag_morgen') in ['on', 'off'] else (now() + timedelta(days=1)).isoweekday() <= 5 %}
+          {{ today_at(states('input_datetime.heizung_wt_nacht_start') if morgen
+               else states('input_datetime.heizung_we_nacht_start')).isoformat() }}
+      - name: Heizung Ist Wohnkueche
+        unique_id: heizung_ist_wohnkueche
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state_class: measurement
+        state: "{{ states('sensor.temperatur_wohnzimmer') | float(0) }}"
+        availability: "{{ is_number(states('sensor.temperatur_wohnzimmer')) }}"
+      - name: Heizung Ziel Wohnkueche
+        unique_id: heizung_ziel_wohnkueche
+        device_class: timestamp
+        state: >
+          {% set z = as_datetime(states('sensor.heizung_zeit_warm_frueh')) %}
+          {{ (z - timedelta(minutes=0)).isoformat() if z else none }}
+      - name: Heizung Heizstart Wohnkueche
+        unique_id: heizung_heizstart_wohnkueche
+        device_class: timestamp
+        state: >
+          {% set z = as_datetime(states('sensor.heizung_zeit_warm_frueh')) %}
+          {{ (z - timedelta(minutes=0
+                 + states('input_number.heizung_vorlauf_wohnkueche') | int(15))).isoformat() if z else none }}
+      - name: Heizung Absenkstart Wohnkueche
+        unique_id: heizung_absenkstart_wohnkueche
+        device_class: timestamp
+        state: >
+          {% set z = as_datetime(states('sensor.heizung_zeit_absenkung')) %}
+          {{ (z - timedelta(minutes=states('input_number.heizung_nachlauf_wohnkueche') | int(10))).isoformat() if z else none }}
+      - name: Heizung Ist Bad
+        unique_id: heizung_ist_bad
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state_class: measurement
+        state: "{{ state_attr('climate.thermostat_bad', 'current_temperature') | float(0) }}"
+        availability: "{{ is_number(state_attr('climate.thermostat_bad', 'current_temperature')) }}"
+      - name: Heizung Ziel Bad
+        unique_id: heizung_ziel_bad
+        device_class: timestamp
+        state: >
+          {% set z = as_datetime(states('sensor.heizung_zeit_warm_frueh')) %}
+          {{ (z - timedelta(minutes=states('input_number.heizung_puffer_tado') | int(5))).isoformat() if z else none }}
+      - name: Heizung Heizstart Bad
+        unique_id: heizung_heizstart_bad
+        device_class: timestamp
+        state: >
+          {% set z = as_datetime(states('sensor.heizung_zeit_warm_frueh')) %}
+          {{ (z - timedelta(minutes=states('input_number.heizung_puffer_tado') | int(5)
+                 + states('input_number.heizung_vorlauf_bad') | int(15))).isoformat() if z else none }}
+      - name: Heizung Absenkstart Bad
+        unique_id: heizung_absenkstart_bad
+        device_class: timestamp
+        state: >
+          {% set z = as_datetime(states('sensor.heizung_zeit_absenkung')) %}
+          {{ (z - timedelta(minutes=states('input_number.heizung_nachlauf_bad') | int(10))).isoformat() if z else none }}
+      - name: Heizung Ist Schlafzimmer
+        unique_id: heizung_ist_schlafzimmer
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state_class: measurement
+        state: "{{ state_attr('climate.thermostat_schlafzimmer', 'current_temperature') | float(0) }}"
+        availability: "{{ is_number(state_attr('climate.thermostat_schlafzimmer', 'current_temperature')) }}"
+      - name: Heizung Ziel Schlafzimmer
+        unique_id: heizung_ziel_schlafzimmer
+        device_class: timestamp
+        state: >
+          {% set z = as_datetime(states('sensor.heizung_zeit_warm_spaet')) %}
+          {{ (z - timedelta(minutes=states('input_number.heizung_puffer_tado') | int(5))).isoformat() if z else none }}
+      - name: Heizung Heizstart Schlafzimmer
+        unique_id: heizung_heizstart_schlafzimmer
+        device_class: timestamp
+        state: >
+          {% set z = as_datetime(states('sensor.heizung_zeit_warm_spaet')) %}
+          {{ (z - timedelta(minutes=states('input_number.heizung_puffer_tado') | int(5)
+                 + states('input_number.heizung_vorlauf_schlafzimmer') | int(15))).isoformat() if z else none }}
+      - name: Heizung Absenkstart Schlafzimmer
+        unique_id: heizung_absenkstart_schlafzimmer
+        device_class: timestamp
+        state: >
+          {% set z = as_datetime(states('sensor.heizung_zeit_absenkung')) %}
+          {{ (z - timedelta(minutes=states('input_number.heizung_nachlauf_schlafzimmer') | int(10))).isoformat() if z else none }}
+      - name: Heizung Ist Zimmer1
+        unique_id: heizung_ist_zimmer1
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state_class: measurement
+        state: "{{ state_attr('climate.thermostat_zimmer_1', 'current_temperature') | float(0) }}"
+        availability: "{{ is_number(state_attr('climate.thermostat_zimmer_1', 'current_temperature')) }}"
+      - name: Heizung Ziel Zimmer1
+        unique_id: heizung_ziel_zimmer1
+        device_class: timestamp
+        state: >
+          {% set z = as_datetime(states('sensor.heizung_zeit_warm_spaet')) %}
+          {{ (z - timedelta(minutes=states('input_number.heizung_puffer_tado') | int(5))).isoformat() if z else none }}
+      - name: Heizung Heizstart Zimmer1
+        unique_id: heizung_heizstart_zimmer1
+        device_class: timestamp
+        state: >
+          {% set z = as_datetime(states('sensor.heizung_zeit_warm_spaet')) %}
+          {{ (z - timedelta(minutes=states('input_number.heizung_puffer_tado') | int(5)
+                 + states('input_number.heizung_vorlauf_zimmer1') | int(15))).isoformat() if z else none }}
+      - name: Heizung Absenkstart Zimmer1
+        unique_id: heizung_absenkstart_zimmer1
+        device_class: timestamp
+        state: >
+          {% set z = as_datetime(states('sensor.heizung_zeit_absenkung')) %}
+          {{ (z - timedelta(minutes=states('input_number.heizung_nachlauf_zimmer1') | int(10))).isoformat() if z else none }}
+      - name: Heizung Ist Zimmer2
+        unique_id: heizung_ist_zimmer2
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state_class: measurement
+        state: "{{ state_attr('climate.thermostat_zimmer_2', 'current_temperature') | float(0) }}"
+        availability: "{{ is_number(state_attr('climate.thermostat_zimmer_2', 'current_temperature')) }}"
+      - name: Heizung Ziel Zimmer2
+        unique_id: heizung_ziel_zimmer2
+        device_class: timestamp
+        state: >
+          {% set z = as_datetime(states('sensor.heizung_zeit_warm_spaet')) %}
+          {{ (z - timedelta(minutes=states('input_number.heizung_puffer_tado') | int(5))).isoformat() if z else none }}
+      - name: Heizung Heizstart Zimmer2
+        unique_id: heizung_heizstart_zimmer2
+        device_class: timestamp
+        state: >
+          {% set z = as_datetime(states('sensor.heizung_zeit_warm_spaet')) %}
+          {{ (z - timedelta(minutes=states('input_number.heizung_puffer_tado') | int(5)
+                 + states('input_number.heizung_vorlauf_zimmer2') | int(15))).isoformat() if z else none }}
+      - name: Heizung Absenkstart Zimmer2
+        unique_id: heizung_absenkstart_zimmer2
+        device_class: timestamp
+        state: >
+          {% set z = as_datetime(states('sensor.heizung_zeit_absenkung')) %}
+          {{ (z - timedelta(minutes=states('input_number.heizung_nachlauf_zimmer2') | int(10))).isoformat() if z else none }}
+      - name: Heizung Ist Zimmer3
+        unique_id: heizung_ist_zimmer3
+        device_class: temperature
+        unit_of_measurement: "°C"
+        state_class: measurement
+        state: "{{ state_attr('climate.thermostat_zimmer_3', 'current_temperature') | float(0) }}"
+        availability: "{{ is_number(state_attr('climate.thermostat_zimmer_3', 'current_temperature')) }}"
+      - name: Heizung Ziel Zimmer3
+        unique_id: heizung_ziel_zimmer3
+        device_class: timestamp
+        state: >
+          {% set z = as_datetime(states('sensor.heizung_zeit_warm_spaet')) %}
+          {{ (z - timedelta(minutes=states('input_number.heizung_puffer_tado') | int(5))).isoformat() if z else none }}
+      - name: Heizung Heizstart Zimmer3
+        unique_id: heizung_heizstart_zimmer3
+        device_class: timestamp
+        state: >
+          {% set z = as_datetime(states('sensor.heizung_zeit_warm_spaet')) %}
+          {{ (z - timedelta(minutes=states('input_number.heizung_puffer_tado') | int(5)
+                 + states('input_number.heizung_vorlauf_zimmer3') | int(15))).isoformat() if z else none }}
+      - name: Heizung Absenkstart Zimmer3
+        unique_id: heizung_absenkstart_zimmer3
+        device_class: timestamp
+        state: >
+          {% set z = as_datetime(states('sensor.heizung_zeit_absenkung')) %}
+          {{ (z - timedelta(minutes=states('input_number.heizung_nachlauf_zimmer3') | int(10))).isoformat() if z else none }}
+
+  - sensor:
+      - name: Heizung Soll Wohnkueche
+        unique_id: heizung_soll_wohnkueche
+        icon: mdi:target
+        state: >
+          {% set start = as_datetime(states('sensor.heizung_heizstart_wohnkueche')) %}
+          {% set aus = as_datetime(states('sensor.heizung_absenkstart_wohnkueche')) %}
+          {% set jetzt = now() %}
+          {% set nacht = (start is not none and jetzt < start) or (aus is not none and jetzt >= aus) %}
+          {% set p = 'person.bewohner_1' %}
+          {% if is_state('binary_sensor.heizung_fenster_wohnkueche', 'on') %}
+            aus
+          {% elif is_state('input_boolean.heizung_urlaub', 'on') %}
+            {{ states('input_number.heizung_temp_urlaub') | float(17) }}
+          {% elif nacht %}
+            {{ states('input_number.heizung_temp_nacht') | float(18) }}
+          {% elif is_state(p, 'home') %}
+            {{ states('input_number.heizung_temp_wohnkueche') | float(20) }}
+          {% else %}
+            {{ states('input_number.heizung_temp_abwesend') | float(18) }}
+          {% endif %}
+      - name: Heizung Soll Bad
+        unique_id: heizung_soll_bad
+        icon: mdi:target
+        state: >
+          {% set start = as_datetime(states('sensor.heizung_heizstart_bad')) %}
+          {% set aus = as_datetime(states('sensor.heizung_absenkstart_bad')) %}
+          {% set jetzt = now() %}
+          {% set nacht = (start is not none and jetzt < start) or (aus is not none and jetzt >= aus) %}
+          {% set p = 'person.bewohner_1' %}
+          {% if is_state('binary_sensor.heizung_fenster_bad', 'on') %}
+            aus
+          {% elif is_state('input_boolean.heizung_urlaub', 'on') %}
+            {{ states('input_number.heizung_temp_urlaub') | float(17) }}
+          {% elif nacht %}
+            {{ states('input_number.heizung_temp_nacht') | float(18) }}
+          {% elif is_state(p, 'home') %}
+            {{ states('input_number.heizung_temp_bad') | float(20) }}
+          {% else %}
+            {{ states('input_number.heizung_temp_abwesend') | float(18) }}
+          {% endif %}
+      - name: Heizung Soll Schlafzimmer
+        unique_id: heizung_soll_schlafzimmer
+        icon: mdi:target
+        state: >
+          {% set start = as_datetime(states('sensor.heizung_heizstart_schlafzimmer')) %}
+          {% set aus = as_datetime(states('sensor.heizung_absenkstart_schlafzimmer')) %}
+          {% set jetzt = now() %}
+          {% set nacht = (start is not none and jetzt < start) or (aus is not none and jetzt >= aus) %}
+          {% set p = 'person.bewohner_1' %}
+          {% if is_state('binary_sensor.heizung_fenster_schlafzimmer', 'on') %}
+            aus
+          {% elif is_state('input_boolean.heizung_urlaub', 'on') %}
+            {{ states('input_number.heizung_temp_urlaub') | float(17) }}
+          {% elif nacht %}
+            {{ states('input_number.heizung_temp_nacht') | float(18) }}
+          {% elif is_state(p, 'home') %}
+            {{ states('input_number.heizung_temp_schlafzimmer') | float(20) }}
+          {% else %}
+            {{ states('input_number.heizung_temp_abwesend') | float(18) }}
+          {% endif %}
+      - name: Heizung Soll Zimmer1
+        unique_id: heizung_soll_zimmer1
+        icon: mdi:target
+        state: >
+          {% set start = as_datetime(states('sensor.heizung_heizstart_zimmer1')) %}
+          {% set aus = as_datetime(states('sensor.heizung_absenkstart_zimmer1')) %}
+          {% set jetzt = now() %}
+          {% set nacht = (start is not none and jetzt < start) or (aus is not none and jetzt >= aus) %}
+          {% set p = 'person.bewohner_2' %}
+          {% if is_state('binary_sensor.heizung_fenster_zimmer1', 'on') %}
+            aus
+          {% elif is_state('input_boolean.heizung_urlaub', 'on') %}
+            {{ states('input_number.heizung_temp_urlaub') | float(17) }}
+          {% elif nacht %}
+            {{ states('input_number.heizung_temp_nacht') | float(18) }}
+          {% elif is_state(p, 'home') %}
+            {{ states('input_number.heizung_temp_zimmer1') | float(20) }}
+          {% else %}
+            {{ states('input_number.heizung_temp_abwesend') | float(18) }}
+          {% endif %}
+      - name: Heizung Soll Zimmer2
+        unique_id: heizung_soll_zimmer2
+        icon: mdi:target
+        state: >
+          {% set start = as_datetime(states('sensor.heizung_heizstart_zimmer2')) %}
+          {% set aus = as_datetime(states('sensor.heizung_absenkstart_zimmer2')) %}
+          {% set jetzt = now() %}
+          {% set nacht = (start is not none and jetzt < start) or (aus is not none and jetzt >= aus) %}
+          {% set p = 'person.bewohner_3' %}
+          {% if is_state('binary_sensor.heizung_fenster_zimmer2', 'on') %}
+            aus
+          {% elif is_state('input_boolean.heizung_urlaub', 'on') %}
+            {{ states('input_number.heizung_temp_urlaub') | float(17) }}
+          {% elif nacht %}
+            {{ states('input_number.heizung_temp_nacht') | float(18) }}
+          {% elif is_state(p, 'home') %}
+            {{ states('input_number.heizung_temp_zimmer2') | float(20) }}
+          {% else %}
+            {{ states('input_number.heizung_temp_abwesend') | float(18) }}
+          {% endif %}
+      - name: Heizung Soll Zimmer3
+        unique_id: heizung_soll_zimmer3
+        icon: mdi:target
+        state: >
+          {% set start = as_datetime(states('sensor.heizung_heizstart_zimmer3')) %}
+          {% set aus = as_datetime(states('sensor.heizung_absenkstart_zimmer3')) %}
+          {% set jetzt = now() %}
+          {% set nacht = (start is not none and jetzt < start) or (aus is not none and jetzt >= aus) %}
+          {% set p = states('input_text.heizung_person_zimmer3') if states('input_text.heizung_person_zimmer3').startswith('person.') else 'person.bewohner_1' %}
+          {% if is_state('binary_sensor.heizung_fenster_zimmer3', 'on') %}
+            aus
+          {% elif is_state('input_boolean.heizung_urlaub', 'on') %}
+            {{ states('input_number.heizung_temp_urlaub') | float(17) }}
+          {% elif nacht %}
+            {{ states('input_number.heizung_temp_nacht') | float(18) }}
+          {% elif is_state(p, 'home') %}
+            {{ states('input_number.heizung_temp_zimmer3') | float(20) }}
+          {% else %}
+            {{ states('input_number.heizung_temp_abwesend') | float(18) }}
+          {% endif %}
+  - binary_sensor:
+      - name: Heizung Abweichung Wohnkueche
+        unique_id: heizung_abweichung_wohnkueche
+        device_class: problem
+        delay_on: "00:02:00"
+        state: >
+          {% set s = states('sensor.heizung_soll_wohnkueche') %}
+          {% set ns = namespace(ab=false) %}
+          {% for e in ['climate.thermostat_wohnzimmer', 'climate.thermostat_kueche'] %}
+            {% set st = states(e) %}
+            {% if st not in ['unavailable', 'unknown'] %}
+              {% if s == 'aus' and st != 'off' %}
+                {% set ns.ab = true %}
+              {% elif is_number(s) and (st == 'off'
+                    or (state_attr(e, 'temperature') | float(0)) != (s | float)) %}
+                {% set ns.ab = true %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.ab }}
+      - name: Heizung Abweichung Bad
+        unique_id: heizung_abweichung_bad
+        device_class: problem
+        delay_on: "00:02:00"
+        state: >
+          {% set s = states('sensor.heizung_soll_bad') %}
+          {% set ns = namespace(ab=false) %}
+          {% for e in ['climate.thermostat_bad'] %}
+            {% set st = states(e) %}
+            {% if st not in ['unavailable', 'unknown'] %}
+              {% if s == 'aus' and st != 'off' %}
+                {% set ns.ab = true %}
+              {% elif is_number(s) and (st == 'off'
+                    or (state_attr(e, 'temperature') | float(0)) != (s | float)) %}
+                {% set ns.ab = true %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.ab }}
+      - name: Heizung Abweichung Schlafzimmer
+        unique_id: heizung_abweichung_schlafzimmer
+        device_class: problem
+        delay_on: "00:02:00"
+        state: >
+          {% set s = states('sensor.heizung_soll_schlafzimmer') %}
+          {% set ns = namespace(ab=false) %}
+          {% for e in ['climate.thermostat_schlafzimmer'] %}
+            {% set st = states(e) %}
+            {% if st not in ['unavailable', 'unknown'] %}
+              {% if s == 'aus' and st != 'off' %}
+                {% set ns.ab = true %}
+              {% elif is_number(s) and (st == 'off'
+                    or (state_attr(e, 'temperature') | float(0)) != (s | float)) %}
+                {% set ns.ab = true %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.ab }}
+      - name: Heizung Abweichung Zimmer1
+        unique_id: heizung_abweichung_zimmer1
+        device_class: problem
+        delay_on: "00:02:00"
+        state: >
+          {% set s = states('sensor.heizung_soll_zimmer1') %}
+          {% set ns = namespace(ab=false) %}
+          {% for e in ['climate.thermostat_zimmer_1'] %}
+            {% set st = states(e) %}
+            {% if st not in ['unavailable', 'unknown'] %}
+              {% if s == 'aus' and st != 'off' %}
+                {% set ns.ab = true %}
+              {% elif is_number(s) and (st == 'off'
+                    or (state_attr(e, 'temperature') | float(0)) != (s | float)) %}
+                {% set ns.ab = true %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.ab }}
+      - name: Heizung Abweichung Zimmer2
+        unique_id: heizung_abweichung_zimmer2
+        device_class: problem
+        delay_on: "00:02:00"
+        state: >
+          {% set s = states('sensor.heizung_soll_zimmer2') %}
+          {% set ns = namespace(ab=false) %}
+          {% for e in ['climate.thermostat_zimmer_2'] %}
+            {% set st = states(e) %}
+            {% if st not in ['unavailable', 'unknown'] %}
+              {% if s == 'aus' and st != 'off' %}
+                {% set ns.ab = true %}
+              {% elif is_number(s) and (st == 'off'
+                    or (state_attr(e, 'temperature') | float(0)) != (s | float)) %}
+                {% set ns.ab = true %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.ab }}
+      - name: Heizung Abweichung Zimmer3
+        unique_id: heizung_abweichung_zimmer3
+        device_class: problem
+        delay_on: "00:02:00"
+        state: >
+          {% set s = states('sensor.heizung_soll_zimmer3') %}
+          {% set ns = namespace(ab=false) %}
+          {% for e in ['climate.thermostat_zimmer_3'] %}
+            {% set st = states(e) %}
+            {% if st not in ['unavailable', 'unknown'] %}
+              {% if s == 'aus' and st != 'off' %}
+                {% set ns.ab = true %}
+              {% elif is_number(s) and (st == 'off'
+                    or (state_attr(e, 'temperature') | float(0)) != (s | float)) %}
+                {% set ns.ab = true %}
+              {% endif %}
+            {% endif %}
+          {% endfor %}
+          {{ ns.ab }}
+
+script:
+  heizung_standardwerte:
+    alias: Heizung Standardwerte setzen
+    icon: mdi:restore
+    sequence:
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_temp_wohnkueche }
+        data: { value: 21.5 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_temp_bad }
+        data: { value: 21 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_temp_schlafzimmer }
+        data: { value: 20 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_temp_zimmer1 }
+        data: { value: 21 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_temp_zimmer2 }
+        data: { value: 20 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_temp_zimmer3 }
+        data: { value: 21.5 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_temp_abwesend }
+        data: { value: 18 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_temp_nacht }
+        data: { value: 18 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_temp_urlaub }
+        data: { value: 17 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_fenster_offen_min }
+        data: { value: 2 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_fenster_zu_min }
+        data: { value: 2 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_fenster_aussen_grenze }
+        data: { value: 20 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_puffer_tado }
+        data: { value: 5 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_toleranz_warm }
+        data: { value: 0.3 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_toleranz_abfall }
+        data: { value: 0.5 }
+      - action: input_datetime.set_datetime
+        target: { entity_id: input_datetime.heizung_wt_nacht_start }
+        data: { time: "20:30:00" }
+      - action: input_datetime.set_datetime
+        target: { entity_id: input_datetime.heizung_wt_morgen_start }
+        data: { time: "05:10:00" }
+      - action: input_datetime.set_datetime
+        target: { entity_id: input_datetime.heizung_wt_zimmer_start }
+        data: { time: "08:00:00" }
+      - action: input_datetime.set_datetime
+        target: { entity_id: input_datetime.heizung_we_nacht_start }
+        data: { time: "21:00:00" }
+      - action: input_datetime.set_datetime
+        target: { entity_id: input_datetime.heizung_we_nacht_ende }
+        data: { time: "08:00:00" }
+      - action: input_text.set_value
+        target: { entity_id: input_text.heizung_person_zimmer3 }
+        data: { value: person.bewohner_1 }
+      - action: input_boolean.turn_off
+        target: { entity_id: input_boolean.heizung_urlaub }
+      - action: input_boolean.turn_on
+        target:
+          entity_id:
+            - input_boolean.heizung_lernen
+            - input_boolean.heizung_benachrichtigung
+            - input_boolean.heizung_automatik
+  heizung_lernwerte_zuruecksetzen:
+    alias: Heizung Lernwerte zurücksetzen
+    icon: mdi:school-outline
+    sequence:
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_vorlauf_wohnkueche }
+        data: { value: 15 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_nachlauf_wohnkueche }
+        data: { value: 10 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_ist_aus_wohnkueche }
+        data: { value: -99 }
+      - action: input_datetime.set_datetime
+        target: { entity_id: input_datetime.heizung_erreicht_wohnkueche }
+        data: { timestamp: 0 }
+      - action: input_text.set_value
+        target: { entity_id: input_text.heizung_ergebnis_morgen_wohnkueche }
+        data: { value: "noch nichts gelernt" }
+      - action: input_text.set_value
+        target: { entity_id: input_text.heizung_ergebnis_abend_wohnkueche }
+        data: { value: "noch nichts gelernt" }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_vorlauf_bad }
+        data: { value: 15 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_nachlauf_bad }
+        data: { value: 10 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_ist_aus_bad }
+        data: { value: -99 }
+      - action: input_datetime.set_datetime
+        target: { entity_id: input_datetime.heizung_erreicht_bad }
+        data: { timestamp: 0 }
+      - action: input_text.set_value
+        target: { entity_id: input_text.heizung_ergebnis_morgen_bad }
+        data: { value: "noch nichts gelernt" }
+      - action: input_text.set_value
+        target: { entity_id: input_text.heizung_ergebnis_abend_bad }
+        data: { value: "noch nichts gelernt" }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_vorlauf_schlafzimmer }
+        data: { value: 15 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_nachlauf_schlafzimmer }
+        data: { value: 10 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_ist_aus_schlafzimmer }
+        data: { value: -99 }
+      - action: input_datetime.set_datetime
+        target: { entity_id: input_datetime.heizung_erreicht_schlafzimmer }
+        data: { timestamp: 0 }
+      - action: input_text.set_value
+        target: { entity_id: input_text.heizung_ergebnis_morgen_schlafzimmer }
+        data: { value: "noch nichts gelernt" }
+      - action: input_text.set_value
+        target: { entity_id: input_text.heizung_ergebnis_abend_schlafzimmer }
+        data: { value: "noch nichts gelernt" }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_vorlauf_zimmer1 }
+        data: { value: 15 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_nachlauf_zimmer1 }
+        data: { value: 10 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_ist_aus_zimmer1 }
+        data: { value: -99 }
+      - action: input_datetime.set_datetime
+        target: { entity_id: input_datetime.heizung_erreicht_zimmer1 }
+        data: { timestamp: 0 }
+      - action: input_text.set_value
+        target: { entity_id: input_text.heizung_ergebnis_morgen_zimmer1 }
+        data: { value: "noch nichts gelernt" }
+      - action: input_text.set_value
+        target: { entity_id: input_text.heizung_ergebnis_abend_zimmer1 }
+        data: { value: "noch nichts gelernt" }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_vorlauf_zimmer2 }
+        data: { value: 15 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_nachlauf_zimmer2 }
+        data: { value: 10 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_ist_aus_zimmer2 }
+        data: { value: -99 }
+      - action: input_datetime.set_datetime
+        target: { entity_id: input_datetime.heizung_erreicht_zimmer2 }
+        data: { timestamp: 0 }
+      - action: input_text.set_value
+        target: { entity_id: input_text.heizung_ergebnis_morgen_zimmer2 }
+        data: { value: "noch nichts gelernt" }
+      - action: input_text.set_value
+        target: { entity_id: input_text.heizung_ergebnis_abend_zimmer2 }
+        data: { value: "noch nichts gelernt" }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_vorlauf_zimmer3 }
+        data: { value: 15 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_nachlauf_zimmer3 }
+        data: { value: 10 }
+      - action: input_number.set_value
+        target: { entity_id: input_number.heizung_ist_aus_zimmer3 }
+        data: { value: -99 }
+      - action: input_datetime.set_datetime
+        target: { entity_id: input_datetime.heizung_erreicht_zimmer3 }
+        data: { timestamp: 0 }
+      - action: input_text.set_value
+        target: { entity_id: input_text.heizung_ergebnis_morgen_zimmer3 }
+        data: { value: "noch nichts gelernt" }
+      - action: input_text.set_value
+        target: { entity_id: input_text.heizung_ergebnis_abend_zimmer3 }
+        data: { value: "noch nichts gelernt" }
+
+automation:
+  - id: heizung_steuerung_zentral
+    alias: Heizung Steuerung (zentral)
+    description: >
+      Stellt alle tado-Thermostate auf den Wert der Sensoren
+      "Heizung Soll …" (Anwesenheit, gelernte Zeiten, Fenster, Urlaub).
+    mode: queued
+    max: 15
+    triggers:
+      - trigger: homeassistant
+        event: start
+        id: start
+      - trigger: state
+        entity_id:
+          - sensor.heizung_soll_wohnkueche
+          - sensor.heizung_soll_bad
+          - sensor.heizung_soll_schlafzimmer
+          - sensor.heizung_soll_zimmer1
+          - sensor.heizung_soll_zimmer2
+          - sensor.heizung_soll_zimmer3
+          - input_boolean.heizung_automatik
+        to: ~
+      - trigger: state
+        id: waechter
+        entity_id:
+          - climate.thermostat_wohnzimmer
+          - climate.thermostat_kueche
+          - climate.thermostat_bad
+          - climate.thermostat_schlafzimmer
+          - climate.thermostat_zimmer_1
+          - climate.thermostat_zimmer_2
+          - climate.thermostat_zimmer_3
+        to: "off"
+        for: "00:01:00"
+      - trigger: state
+        id: verfuegbar
+        entity_id:
+          - climate.thermostat_wohnzimmer
+          - climate.thermostat_kueche
+          - climate.thermostat_bad
+          - climate.thermostat_schlafzimmer
+          - climate.thermostat_zimmer_1
+          - climate.thermostat_zimmer_2
+          - climate.thermostat_zimmer_3
+        from: unavailable
+        for: "00:00:30"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.heizung_automatik
+        state: "on"
+    actions:
+      - if: "{{ trigger.id == 'start' }}"
+        then:
+          - delay: "00:01:00"
+        else:
+          - delay: "00:00:02"
+      - variables:
+          ziele: >
+            {% set ns = namespace(out=[]) %}
+            {% for r in [
+              {'k': 'wohnkueche', 't': ['climate.thermostat_wohnzimmer', 'climate.thermostat_kueche']},
+              {'k': 'bad', 't': ['climate.thermostat_bad']},
+              {'k': 'schlafzimmer', 't': ['climate.thermostat_schlafzimmer']},
+              {'k': 'zimmer1', 't': ['climate.thermostat_zimmer_1']},
+              {'k': 'zimmer2', 't': ['climate.thermostat_zimmer_2']},
+              {'k': 'zimmer3', 't': ['climate.thermostat_zimmer_3']}
+            ] %}
+              {% set s = states('sensor.heizung_soll_' ~ r.k) %}
+              {% if s == 'aus' or is_number(s) %}
+                {% for e in r.t %}
+                  {% set ns.out = ns.out + [{'e': e, 'z': 'off' if s == 'aus' else (s | float)}] %}
+                {% endfor %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.out }}
+      - repeat:
+          for_each: "{{ ziele }}"
+          sequence:
+            - if: "{{ states(repeat.item.e) not in ['unavailable', 'unknown'] }}"
+              then:
+                - choose:
+                    # Fenster offen -> aus
+                    - conditions: "{{ repeat.item.z == 'off' }}"
+                      sequence:
+                        - if: "{{ not is_state(repeat.item.e, 'off') }}"
+                          then:
+                            - action: climate.set_hvac_mode
+                              target:
+                                entity_id: "{{ repeat.item.e }}"
+                              data:
+                                hvac_mode: "off"
+                    # war aus -> ZWEI Schritte: erst Heizen, dann Temperatur
+                    - conditions: "{{ is_state(repeat.item.e, 'off') }}"
+                      sequence:
+                        - action: climate.set_hvac_mode
+                          target:
+                            entity_id: "{{ repeat.item.e }}"
+                          data:
+                            hvac_mode: heat
+                        - delay: "00:00:05"
+                        - action: climate.set_temperature
+                          target:
+                            entity_id: "{{ repeat.item.e }}"
+                          data:
+                            temperature: "{{ repeat.item.z | float }}"
+                    # heizt bereits -> nur Temperatur
+                    - conditions: "{{ (state_attr(repeat.item.e, 'temperature') | float(0)) != (repeat.item.z | float) }}"
+                      sequence:
+                        - action: climate.set_temperature
+                          target:
+                            entity_id: "{{ repeat.item.e }}"
+                          data:
+                            temperature: "{{ repeat.item.z | float }}"
+      - event: heizung_steuerung_fertig
+
+  - id: heizung_kontrolle
+    alias: Heizung Kontrolle (1 Min nach Steuerung)
+    description: >
+      Sendet 1 Minute nach jedem Lauf der Steuerung die Soll-Temperaturen
+      noch einmal, falls tado sie nicht übernommen hat.
+    mode: restart
+    triggers:
+      - trigger: event
+        event_type: heizung_steuerung_fertig
+    conditions:
+      - condition: state
+        entity_id: input_boolean.heizung_automatik
+        state: "on"
+    actions:
+      - delay: "00:01:00"
+      - variables:
+          ziele: >
+            {% set ns = namespace(out=[]) %}
+            {% for r in [
+              {'k': 'wohnkueche', 't': ['climate.thermostat_wohnzimmer', 'climate.thermostat_kueche']},
+              {'k': 'bad', 't': ['climate.thermostat_bad']},
+              {'k': 'schlafzimmer', 't': ['climate.thermostat_schlafzimmer']},
+              {'k': 'zimmer1', 't': ['climate.thermostat_zimmer_1']},
+              {'k': 'zimmer2', 't': ['climate.thermostat_zimmer_2']},
+              {'k': 'zimmer3', 't': ['climate.thermostat_zimmer_3']}
+            ] %}
+              {% set s = states('sensor.heizung_soll_' ~ r.k) %}
+              {% if s == 'aus' or is_number(s) %}
+                {% for e in r.t %}
+                  {% set ns.out = ns.out + [{'e': e, 'z': 'off' if s == 'aus' else (s | float)}] %}
+                {% endfor %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.out }}
+      - repeat:
+          for_each: "{{ ziele }}"
+          sequence:
+            - if: "{{ states(repeat.item.e) not in ['unavailable', 'unknown'] }}"
+              then:
+                - choose:
+                    # Fenster offen -> aus
+                    - conditions: "{{ repeat.item.z == 'off' }}"
+                      sequence:
+                        - if: "{{ not is_state(repeat.item.e, 'off') }}"
+                          then:
+                            - action: climate.set_hvac_mode
+                              target:
+                                entity_id: "{{ repeat.item.e }}"
+                              data:
+                                hvac_mode: "off"
+                    # war aus -> ZWEI Schritte: erst Heizen, dann Temperatur
+                    - conditions: "{{ is_state(repeat.item.e, 'off') }}"
+                      sequence:
+                        - action: climate.set_hvac_mode
+                          target:
+                            entity_id: "{{ repeat.item.e }}"
+                          data:
+                            hvac_mode: heat
+                        - delay: "00:00:05"
+                        - action: climate.set_temperature
+                          target:
+                            entity_id: "{{ repeat.item.e }}"
+                          data:
+                            temperature: "{{ repeat.item.z | float }}"
+                    # heizt bereits -> nur Temperatur
+                    - conditions: "{{ true }}"
+                      sequence:
+                        - action: climate.set_temperature
+                          target:
+                            entity_id: "{{ repeat.item.e }}"
+                          data:
+                            temperature: "{{ repeat.item.z | float }}"
+
+  - id: heizung_lernen
+    alias: Heizung Lernen (Vorlauf/Nachlauf)
+    description: >
+      Misst, ob die Räume zur Zielzeit warm waren bzw. wie stark sie bis zur
+      Absenkzeit abgekühlt sind, und passt Vorlauf/Nachlauf an.
+    mode: queued
+    max: 30
+    triggers:
+      - trigger: state
+        id: erreicht_wohnkueche
+        entity_id: sensor.heizung_ist_wohnkueche
+      - trigger: time
+        id: erreicht_wohnkueche
+        at: sensor.heizung_heizstart_wohnkueche
+      - trigger: time
+        id: ziel_wohnkueche
+        at: sensor.heizung_ziel_wohnkueche
+      - trigger: time
+        id: spaet_wohnkueche
+        at:
+          entity_id: sensor.heizung_ziel_wohnkueche
+          offset: "01:00:00"
+      - trigger: time
+        id: aus_wohnkueche
+        at: sensor.heizung_absenkstart_wohnkueche
+      - trigger: state
+        id: erreicht_bad
+        entity_id: sensor.heizung_ist_bad
+      - trigger: time
+        id: erreicht_bad
+        at: sensor.heizung_heizstart_bad
+      - trigger: time
+        id: ziel_bad
+        at: sensor.heizung_ziel_bad
+      - trigger: time
+        id: spaet_bad
+        at:
+          entity_id: sensor.heizung_ziel_bad
+          offset: "01:00:00"
+      - trigger: time
+        id: aus_bad
+        at: sensor.heizung_absenkstart_bad
+      - trigger: state
+        id: erreicht_schlafzimmer
+        entity_id: sensor.heizung_ist_schlafzimmer
+      - trigger: time
+        id: erreicht_schlafzimmer
+        at: sensor.heizung_heizstart_schlafzimmer
+      - trigger: time
+        id: ziel_schlafzimmer
+        at: sensor.heizung_ziel_schlafzimmer
+      - trigger: time
+        id: spaet_schlafzimmer
+        at:
+          entity_id: sensor.heizung_ziel_schlafzimmer
+          offset: "01:00:00"
+      - trigger: time
+        id: aus_schlafzimmer
+        at: sensor.heizung_absenkstart_schlafzimmer
+      - trigger: state
+        id: erreicht_zimmer1
+        entity_id: sensor.heizung_ist_zimmer1
+      - trigger: time
+        id: erreicht_zimmer1
+        at: sensor.heizung_heizstart_zimmer1
+      - trigger: time
+        id: ziel_zimmer1
+        at: sensor.heizung_ziel_zimmer1
+      - trigger: time
+        id: spaet_zimmer1
+        at:
+          entity_id: sensor.heizung_ziel_zimmer1
+          offset: "01:00:00"
+      - trigger: time
+        id: aus_zimmer1
+        at: sensor.heizung_absenkstart_zimmer1
+      - trigger: state
+        id: erreicht_zimmer2
+        entity_id: sensor.heizung_ist_zimmer2
+      - trigger: time
+        id: erreicht_zimmer2
+        at: sensor.heizung_heizstart_zimmer2
+      - trigger: time
+        id: ziel_zimmer2
+        at: sensor.heizung_ziel_zimmer2
+      - trigger: time
+        id: spaet_zimmer2
+        at:
+          entity_id: sensor.heizung_ziel_zimmer2
+          offset: "01:00:00"
+      - trigger: time
+        id: aus_zimmer2
+        at: sensor.heizung_absenkstart_zimmer2
+      - trigger: state
+        id: erreicht_zimmer3
+        entity_id: sensor.heizung_ist_zimmer3
+      - trigger: time
+        id: erreicht_zimmer3
+        at: sensor.heizung_heizstart_zimmer3
+      - trigger: time
+        id: ziel_zimmer3
+        at: sensor.heizung_ziel_zimmer3
+      - trigger: time
+        id: spaet_zimmer3
+        at:
+          entity_id: sensor.heizung_ziel_zimmer3
+          offset: "01:00:00"
+      - trigger: time
+        id: aus_zimmer3
+        at: sensor.heizung_absenkstart_zimmer3
+      - trigger: time
+        id: abend_alle
+        at: sensor.heizung_zeit_absenkung
+    conditions:
+      - condition: state
+        entity_id:
+          - input_boolean.heizung_automatik
+          - input_boolean.heizung_lernen
+        state: "on"
+      - condition: state
+        entity_id: input_boolean.heizung_urlaub
+        state: "off"
+    actions:
+      - variables:
+          art: "{{ trigger.id.split('_')[0] }}"
+          k: "{{ trigger.id.split('_')[1] }}"
+          namen: "{{ {'wohnkueche': 'Wohnküche', 'bad': 'Bad', 'schlafzimmer': 'Schlafzimmer', 'zimmer1': 'Zimmer 1', 'zimmer2': 'Zimmer 2', 'zimmer3': 'Zimmer 3'} }}"
+          person: >
+            {% set zimmer3_p = states('input_text.heizung_person_zimmer3') %}
+            {% set zimmer3_p = zimmer3_p if zimmer3_p.startswith('person.') else 'person.bewohner_1' %}
+            {{ ({'wohnkueche': 'person.bewohner_1', 'bad': 'person.bewohner_1', 'schlafzimmer': 'person.bewohner_1', 'zimmer1': 'person.bewohner_2', 'zimmer2': 'person.bewohner_3', 'zimmer3': zimmer3_p}).get(k, 'person.bewohner_1') }}
+          jetzt_ts: "{{ as_timestamp(now()) }}"
+          start_ts: "{{ as_timestamp(states('sensor.heizung_heizstart_' ~ k), 0) }}"
+          ziel_ts: "{{ as_timestamp(states('sensor.heizung_ziel_' ~ k), 0) }}"
+          erreicht_ts: "{{ as_timestamp(states('input_datetime.heizung_erreicht_' ~ k), 0) }}"
+          ist: "{{ states('sensor.heizung_ist_' ~ k) | float(-99) }}"
+          soll: "{{ states('input_number.heizung_temp_' ~ k) | float(20) }}"
+          tol_warm: "{{ states('input_number.heizung_toleranz_warm') | float(0.3) }}"
+          vorlauf: "{{ states('input_number.heizung_vorlauf_' ~ k) | int(15) }}"
+          fenster_ok: >
+            {% set s = expand('binary_sensor.heizung_fenster_' ~ k) %}
+            {{ s | count == 1 and s[0].state == 'off' and as_timestamp(s[0].last_changed) < start_ts }}
+          zeit: "{{ now().strftime('%d.%m. %H:%M') }}"
+      - choose:
+          # ---- warm erreicht erfassen (ggf. Verspätung auswerten) ----
+          - conditions:
+              - "{{ art == 'erreicht' }}"
+              - "{{ start_ts > 0 and start_ts <= jetzt_ts <= ziel_ts + 3600 }}"
+              - "{{ erreicht_ts < start_ts }}"
+              - "{{ ist >= soll - tol_warm }}"
+              - "{{ is_state(person, 'home') }}"
+            sequence:
+              - action: input_datetime.set_datetime
+                target:
+                  entity_id: "input_datetime.heizung_erreicht_{{ k }}"
+                data:
+                  timestamp: "{{ jetzt_ts }}"
+              - if: "{{ jetzt_ts > ziel_ts and fenster_ok and jetzt_ts - start_ts > 60 }}"
+                then:
+                  - variables:
+                      spaet_min: "{{ ((jetzt_ts - ziel_ts) / 60) | round(0) | int }}"
+                      neu: "{{ [45, vorlauf + ((spaet_min / 2) | round(0, 'ceil') | int)] | min }}"
+                  - action: input_number.set_value
+                    target:
+                      entity_id: "input_number.heizung_vorlauf_{{ k }}"
+                    data:
+                      value: "{{ neu }}"
+                  - action: input_text.set_value
+                    target:
+                      entity_id: "input_text.heizung_ergebnis_morgen_{{ k }}"
+                    data:
+                      value: "{{ zeit }}: {{ spaet_min }} Min zu spät warm → Vorlauf {{ vorlauf }} → {{ neu }} Min"
+                  - if: "{{ spaet_min > 5 and is_state('input_boolean.heizung_benachrichtigung', 'on') }}"
+                    then:
+                      - action: notify.mobile_app_mein_handy
+                        data:
+                          title: "Heizung {{ namen[k] }}"
+                          message: "Erst {{ spaet_min }} Min nach der Zielzeit warm. Vorlauf jetzt {{ neu }} Min."
+          # ---- Zielzeit: war es schon warm? ----
+          - conditions:
+              - "{{ art == 'ziel' }}"
+              - "{{ erreicht_ts >= start_ts > 0 }}"
+              - "{{ is_state(person, 'home') }}"
+            sequence:
+              - choose:
+                  - conditions: "{{ erreicht_ts - start_ts <= 60 }}"
+                    sequence:
+                      - action: input_text.set_value
+                        target:
+                          entity_id: "input_text.heizung_ergebnis_morgen_{{ k }}"
+                        data:
+                          value: "{{ zeit }}: war schon warm – nicht gelernt"
+                  - conditions: "{{ not fenster_ok }}"
+                    sequence:
+                      - action: input_text.set_value
+                        target:
+                          entity_id: "input_text.heizung_ergebnis_morgen_{{ k }}"
+                        data:
+                          value: "{{ zeit }}: Fenster war offen – nicht gelernt"
+                default:
+                  - variables:
+                      frueh_min: "{{ ((ziel_ts - erreicht_ts) / 60) | round(0) | int }}"
+                      neu: "{{ [0, vorlauf - ((frueh_min / 2) | round(0, 'floor') | int)] | max if frueh_min >= 2 else vorlauf }}"
+                  - action: input_number.set_value
+                    target:
+                      entity_id: "input_number.heizung_vorlauf_{{ k }}"
+                    data:
+                      value: "{{ neu }}"
+                  - action: input_text.set_value
+                    target:
+                      entity_id: "input_text.heizung_ergebnis_morgen_{{ k }}"
+                    data:
+                      value: >
+                        {{ zeit }}: {{ 'pünktlich warm' if frueh_min < 2 else frueh_min ~ ' Min zu früh warm' }}
+                        → Vorlauf {{ vorlauf }} → {{ neu }} Min
+          # ---- 60 Min nach Zielzeit immer noch nicht warm ----
+          - conditions:
+              - "{{ art == 'spaet' }}"
+              - "{{ erreicht_ts < start_ts }}"
+              - "{{ is_state(person, 'home') }}"
+              - "{{ fenster_ok }}"
+            sequence:
+              - variables:
+                  neu: "{{ [45, vorlauf + 10] | min }}"
+              - action: input_number.set_value
+                target:
+                  entity_id: "input_number.heizung_vorlauf_{{ k }}"
+                data:
+                  value: "{{ neu }}"
+              - action: input_text.set_value
+                target:
+                  entity_id: "input_text.heizung_ergebnis_morgen_{{ k }}"
+                data:
+                  value: "{{ zeit }}: nicht warm geworden ({{ ist }} °C) → Vorlauf {{ vorlauf }} → {{ neu }} Min"
+              - if: "{{ is_state('input_boolean.heizung_benachrichtigung', 'on') }}"
+                then:
+                  - action: notify.mobile_app_mein_handy
+                    data:
+                      title: "Heizung {{ namen[k] }}"
+                      message: "Seit 1 Std. über der Zielzeit nicht warm ({{ ist }} °C statt {{ soll }} °C). Vorlauf jetzt {{ neu }} Min."
+          # ---- früh absenken: Ist-Temperatur merken ----
+          - conditions:
+              - "{{ art == 'aus' }}"
+            sequence:
+              - action: input_number.set_value
+                target:
+                  entity_id: "input_number.heizung_ist_aus_{{ k }}"
+                data:
+                  value: >
+                    {{ ist if (is_state(person, 'home')
+                               and is_state('binary_sensor.heizung_fenster_' ~ k, 'off')
+                               and ist > -50) else -99 }}
+          # ---- Absenkzeit: Abkühlung auswerten (alle Räume) ----
+          - conditions:
+              - "{{ art == 'abend' }}"
+            sequence:
+              - delay: "00:00:05"
+              - repeat:
+                  for_each: ['wohnkueche', 'bad', 'schlafzimmer', 'zimmer1', 'zimmer2', 'zimmer3']
+                  sequence:
+                    - variables:
+                        rk: "{{ repeat.item }}"
+                        rp: >
+                          {% set zimmer3_p = states('input_text.heizung_person_zimmer3') %}
+                          {% set zimmer3_p = zimmer3_p if zimmer3_p.startswith('person.') else 'person.bewohner_1' %}
+                          {{ ({'wohnkueche': 'person.bewohner_1', 'bad': 'person.bewohner_1', 'schlafzimmer': 'person.bewohner_1', 'zimmer1': 'person.bewohner_2', 'zimmer2': 'person.bewohner_3', 'zimmer3': zimmer3_p}).get(rk, 'person.bewohner_1') }}
+                        nl: "{{ states('input_number.heizung_nachlauf_' ~ rk) | int(10) }}"
+                        ist_aus: "{{ states('input_number.heizung_ist_aus_' ~ rk) | float(-99) }}"
+                        ist_jetzt: "{{ states('sensor.heizung_ist_' ~ rk) | float(-99) }}"
+                        tol_ab: "{{ states('input_number.heizung_toleranz_abfall') | float(0.5) }}"
+                        aus_ts: "{{ as_timestamp(states('sensor.heizung_absenkstart_' ~ rk), 0) }}"
+                        f_ok: >
+                          {% set s = expand('binary_sensor.heizung_fenster_' ~ rk) %}
+                          {{ s | count == 1 and s[0].state == 'off' and as_timestamp(s[0].last_changed) < aus_ts }}
+                        zeit2: "{{ now().strftime('%d.%m. %H:%M') }}"
+                    - choose:
+                        - conditions: "{{ nl == 0 }}"
+                          sequence:
+                            - action: input_number.set_value
+                              target:
+                                entity_id: "input_number.heizung_nachlauf_{{ rk }}"
+                              data:
+                                value: 5
+                            - action: input_text.set_value
+                              target:
+                                entity_id: "input_text.heizung_ergebnis_abend_{{ rk }}"
+                              data:
+                                value: "{{ zeit2 }}: Nachlauf war 0 → 5 Min zum Testen"
+                        - conditions: "{{ ist_aus > -50 and ist_jetzt > -50 and f_ok and is_state(rp, 'home') }}"
+                          sequence:
+                            - variables:
+                                abfall: "{{ (ist_aus - ist_jetzt) | round(2) }}"
+                                erlaubt: "{{ (tol_ab / (abfall / nl)) if abfall > 0.05 else 999 }}"
+                                neu: >
+                                  {% if abfall <= 0.05 %}{{ [60, nl + 5] | min }}
+                                  {% else %}{{ [0, [60, (nl + (erlaubt - nl) / 2) | round(0) | int] | min] | max }}{% endif %}
+                            - action: input_number.set_value
+                              target:
+                                entity_id: "input_number.heizung_nachlauf_{{ rk }}"
+                              data:
+                                value: "{{ neu }}"
+                            - action: input_text.set_value
+                              target:
+                                entity_id: "input_text.heizung_ergebnis_abend_{{ rk }}"
+                              data:
+                                value: "{{ zeit2 }}: in {{ nl }} Min um {{ abfall }} °C abgekühlt → Nachlauf {{ nl }} → {{ neu | int }} Min"
+                      default:
+                        - action: input_text.set_value
+                          target:
+                            entity_id: "input_text.heizung_ergebnis_abend_{{ rk }}"
+                          data:
+                            value: "{{ zeit2 }}: nicht gelernt (abwesend, Fenster oder keine Messung)"
+                    - action: input_number.set_value
+                      target:
+                        entity_id: "input_number.heizung_ist_aus_{{ rk }}"
+                      data:
+                        value: -99
